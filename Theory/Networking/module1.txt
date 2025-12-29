@@ -1,0 +1,157 @@
+CCNA Module 1: Networking Today – Study Material
+
+1. The Global Impact of Networking
+    Networks have become essential infrastructure similar to utilities like electricity or water. 
+    This was especially clear during the COVID-19 pandemic when remote work and communication became critical.
+
+    Human Networks:
+        Networks allow people worldwide to connect and collaborate, creating a “world without boundaries.”
+    VPN Example:
+        A Virtual Private Network (VPN) allows an employee in Houston to securely work as if they were physically in the head office in Calgary.
+
+2. Network Components
+    Network infrastructure consists of:
+        Devices
+        Media
+        Services
+
+    A. Host Roles and Computing Models
+        Hosts (End Devices):
+            Devices directly involved in communication such as PCs, phones, and laptops.
+
+        Client–Server Model:
+            Server: Provides services such as web, email, or file storage.
+            Client: Requests services from servers (e.g., web browser).
+
+        Peer-to-Peer (P2P) Model:
+            Devices connect directly to each other.
+            Advantages: simple, low cost
+            Disadvantages: not scalable, less secure, slower
+
+    B. Network Devices
+        End Devices: laptops, printers, phones, tablets
+        Intermediary Devices: switches, routers, firewalls, wireless access points
+        Their functions include:
+            directing data
+            regenerating signals
+            detecting errors
+
+    C. Network Media
+        Copper cable – uses electrical signals
+        Fiber optic cable – uses light, faster and more secure
+        Wireless – uses radio waves, more flexible but less secure
+
+3. Network Topologies and Representations
+    NIC (Network Interface Card): hardware that connects a device to a network
+    Port/Interface: physical connector on the NIC
+
+    Types of Topology
+        Physical Topology: physical layout and cabling
+        Logical Topology: how data moves through the network
+
+4. Common Types of Networks
+    A. Network Sizes
+        Small Home Network
+        SOHO (Small Office/Home Office)
+        Medium and Large Networks
+        Worldwide Networks (like the Internet)
+
+    B. LAN vs WAN
+        LAN (Local Area Network):
+            small area
+            managed by one organization
+            high speed
+        WAN (Wide Area Network):
+            large geographic area
+            connects multiple LANs
+            usually provided by ISPs
+
+    C. Internet and Access Levels
+        Internet – global public network
+        Intranet – private internal network
+        Extranet – restricted access for trusted partners
+    Organizations like IETF and ICANN help maintain standards and naming.
+
+5. Internet Connections
+    Home and SOHO
+        Cable Internet
+        DSL
+        Cellular
+        Satellite
+        Dial-up (old and very slow)
+    Business Connections
+        Leased Lines (e.g., T1/T2)
+        Metro Ethernet
+        Business DSL
+    
+    Converged Networks
+        Modern networks carry:
+            voice
+            video
+            data
+        over the same infrastructure.
+
+6. Reliable Network Architecture
+    Four key characteristics:
+        Fault Tolerance
+            Uses redundancy and multiple paths
+            Packet switching helps traffic reroute
+
+        Scalability
+            Network can grow without performance loss
+
+        Quality of Service (QoS)
+            Prioritizes important traffic like voice/video
+
+        Security
+            Protects devices and data
+            CIA Triad:
+                Confidentiality
+                Integrity
+                Availability
+
+7. Network Trends
+    BYOD (Bring Your Own Device)
+    Online Collaboration
+    Video Communication
+    Cloud Computing:
+        Public
+        Private
+        Hybrid
+        Industry-specific (Custom)
+    Smart Home Devices
+    Powerline Networking
+    Wireless Broadband for rural areas
+
+8. Network Security
+    Security must balance protection and performance.
+
+    Security Threats
+        External:
+            viruses
+            worms
+            spyware
+            DoS attacks
+            identity theft
+
+        Internal:
+            lost devices
+            misuse
+            malicious employees
+
+    Security Solutions
+        Home:
+            antivirus
+            firewalls
+
+        Business:
+            firewalls
+            ACLs
+            IPS
+            VPNs
+
+9. IT Professional and Certification
+    CCNA proves foundational networking knowledge
+    Supports careers such as:
+        network engineer
+        network analyst
