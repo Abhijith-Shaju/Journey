@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snake Sabotage - Phase 1</title>
+    <title>Snake Sabotage - Phase 1 (Clean)</title>
     <style>
         :root {
             --bg-color: #1a1a2e;
@@ -73,7 +73,6 @@
             background-color: #000;
             box-shadow: 0 0 20px rgba(233, 69, 96, 0.2);
             border: 4px solid var(--text-color);
-            /* Crisp edges for pixel art feel */
             image-rendering: pixelated; 
         }
 
@@ -141,34 +140,33 @@
  */
 const CONFIG = {
     CANVAS_SIZE: 600,
-    GRID_SIZE: 20, 
-    TICK_RATE: 12, 
+    GRID_SIZE: 20,
+    TICK_RATE: 12,
     
-    // Configurable Item Limits
-    MAX_ITEMS: 2, 
-    GOLD_LIFETIME: 5000, // Gold orbs disappear after 5 seconds
-
+    MAX_ITEMS: 2,
+    GOLD_LIFETIME: 5000,
+    
     SPAWN_RATES: {
-        GREEN: 0.60,  
-        GOLD:  0.10,  
-        BLUE:  0.15,  
-        RED:   0.15   
+        GREEN: 0.60,
+        GOLD: 0.10,
+        BLUE: 0.15,
+        RED: 0.15
     },
-
+    
     SCORES: {
         GREEN: 5,
         GOLD: 15,
-        BLUE: 0, 
+        BLUE: 0,
         RED: 0
     },
-
+    
     COLORS: {
         SNAKE_HEAD: '#e94560',
         SNAKE_BODY: '#ff8a9d',
         ORB_GREEN: '#2ecc71',
-        ORB_GOLD:  '#f1c40f',
-        ORB_BLUE:  '#00ffff',
-        ORB_RED:   '#ff0000'
+        ORB_GOLD: '#f1c40f',
+        ORB_BLUE: '#00ffff',
+        ORB_RED: '#ff0000'
     }
 };
 
@@ -176,39 +174,49 @@ const TILE_COUNT = CONFIG.CANVAS_SIZE / CONFIG.GRID_SIZE;
 
 /**
  * ==========================================
- * INPUT HANDLER (FIXED FOR CAPS LOCK)
+ * INPUT HANDLER
  * ==========================================
+ * Manages keyboard input using e.code for layout independence.
  */
 class InputHandler {
     constructor() {
-        this.direction = { x: 0, y: 0 };
+        this.direction = { x: 1, y: 0 };
         this.nextDirection = { x: 1, y: 0 };
-        document.addEventListener('keydown', this.handleKey.bind(this));
+        document.addEventListener('keydown', (e) => this.handleKey(e));
     }
 
     handleKey(e) {
-        // Prevent scrolling for arrows
-        if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.code) > -1) {
+        // Prevent default scrolling behavior for arrow keys
+        if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
             e.preventDefault();
         }
 
-        // We switch on e.code, which ignores Caps Lock
-        switch(e.code) {
-            case 'KeyW': 
+        const currentDir = this.direction;
+
+        switch (e.code) {
+            case 'KeyW':
             case 'ArrowUp':
-                if (this.direction.y === 0) this.nextDirection = { x: 0, y: -1 }; 
+                if (currentDir.y === 0) {
+                    this.nextDirection = { x: 0, y: -1 };
+                }
                 break;
-            case 'KeyS': 
+            case 'KeyS':
             case 'ArrowDown':
-                if (this.direction.y === 0) this.nextDirection = { x: 0, y: 1 }; 
+                if (currentDir.y === 0) {
+                    this.nextDirection = { x: 0, y: 1 };
+                }
                 break;
-            case 'KeyA': 
+            case 'KeyA':
             case 'ArrowLeft':
-                if (this.direction.x === 0) this.nextDirection = { x: -1, y: 0 }; 
+                if (currentDir.x === 0) {
+                    this.nextDirection = { x: -1, y: 0 };
+                }
                 break;
-            case 'KeyD': 
+            case 'KeyD':
             case 'ArrowRight':
-                if (this.direction.x === 0) this.nextDirection = { x: 1, y: 0 }; 
+                if (currentDir.x === 0) {
+                    this.nextDirection = { x: 1, y: 0 };
+                }
                 break;
         }
     }
@@ -220,59 +228,70 @@ class InputHandler {
 
 /**
  * ==========================================
- * SNAKE ENTITY
+ * SNAKE CLASS
  * ==========================================
+ * Handles body segments, movement, and collision detection.
  */
 class Snake {
     constructor() {
-        this.score = 0; 
+        this.score = 0;
         this.reset();
     }
 
     reset(startLength = 3) {
+        // Ensure start length is valid
+        const safeLength = Math.max(3, isNaN(startLength) ? 3 : startLength);
+        
         this.alive = true;
         this.body = [];
-        const safeLength = isNaN(startLength) || startLength < 3 ? 3 : startLength;
-        const startX = 10; 
-        const startY = 15;
-
+        
+        // Spawn coordinates (horizontal start)
         for (let i = 0; i < safeLength; i++) {
-            this.body.push({ x: startX - i, y: startY });
+            this.body.push({ x: 10 - i, y: 15 });
         }
     }
 
-    update(inputDir) {
+    update(inputDirection) {
         if (!this.alive) return;
 
+        // Create new head based on current direction
         const head = { ...this.body[0] };
-        head.x += inputDir.x;
-        head.y += inputDir.y;
+        head.x += inputDirection.x;
+        head.y += inputDirection.y;
 
-        if (head.x < 0 || head.x >= TILE_COUNT || head.y < 0 || head.y >= TILE_COUNT) {
+        // 1. Check Wall Collision
+        if (head.x < 0 || head.y < 0 || head.x >= TILE_COUNT || head.y >= TILE_COUNT) {
             this.die();
             return;
         }
 
-        for (let segment of this.body) {
-            if (head.x === segment.x && head.y === segment.y) {
+        // 2. Check Self Collision
+        for (let i = 0; i < this.body.length; i++) {
+            if (head.x === this.body[i].x && head.y === this.body[i].y) {
                 this.die();
                 return;
             }
         }
 
+        // Move head forward
         this.body.unshift(head);
+        
+        // Note: We do NOT pop the tail here. 
+        // Tail management is done in Game.update() depending on if we ate food.
     }
 
     die() {
         this.alive = false;
-        this.score = Math.floor(this.score * 0.8); 
+        // Penalize score (Keep 80%)
+        this.score = Math.max(0, Math.floor(this.score * 0.8));
     }
 }
 
 /**
  * ==========================================
- * GAME ENGINE
+ * MAIN GAME ENGINE
  * ==========================================
+ * Orchestrates the game loop, rendering, and game state.
  */
 class Game {
     constructor() {
@@ -282,77 +301,101 @@ class Game {
         this.input = new InputHandler();
         this.snake = new Snake();
         
-        this.items = []; 
-        this.refreshSpawns(); 
+        this.items = [];
+        this.spawnInitialItems();
 
         this.lastTime = 0;
         this.tickInterval = 1000 / CONFIG.TICK_RATE;
-        this.respawnTimer = null;
-        
-        // --- NEW: State Flag for Respawn ---
-        this.waitingForRespawnInput = false;
 
+        // Respawn State Flags
+        this.waitingForInput = false;
+        this.respawnTimer = null;
+
+        // UI References
         this.uiScore = document.getElementById('score-display');
         this.uiMainScore = document.getElementById('ui-score');
         this.uiStatus = document.getElementById('status-display');
         this.uiLog = document.getElementById('kill-feed');
 
-        // --- NEW: Global Key Listener for Respawn ---
+        // Global Listener for Respawn Key
         window.addEventListener('keydown', () => {
-            if (this.waitingForRespawnInput) {
+            if (this.waitingForInput) {
                 this.triggerRespawn();
             }
         });
 
-        requestAnimationFrame(this.gameLoop.bind(this));
+        // Start Loop
+        requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
     }
 
-    log(msg, styleClass) {
+    log(msg, className) {
         const div = document.createElement('div');
         div.textContent = `> ${msg}`;
-        if (styleClass) div.className = styleClass;
+        if (className) div.className = className;
         this.uiLog.prepend(div);
     }
 
-    refreshSpawns() {
+    spawnInitialItems() {
         this.items = [];
-        for(let i=0; i < CONFIG.MAX_ITEMS; i++) {
+        for (let i = 0; i < CONFIG.MAX_ITEMS; i++) {
             this.spawnSingleItem();
         }
     }
 
     spawnSingleItem() {
-        let position;
-        let valid = false;
         let attempts = 0;
-        while (!valid && attempts < 100) {
+        let validPosition = false;
+        let position = { x: 0, y: 0 };
+
+        // Try to find a free spot 200 times before giving up (prevents infinite loop)
+        while (!validPosition && attempts < 200) {
             attempts++;
             position = {
                 x: Math.floor(Math.random() * TILE_COUNT),
                 y: Math.floor(Math.random() * TILE_COUNT)
             };
-            valid = true;
-            for(let seg of this.snake.body) {
-                if(seg.x === position.x && seg.y === position.y) valid = false;
+
+            validPosition = true;
+
+            // Check Collision with Snake
+            for (const segment of this.snake.body) {
+                if (segment.x === position.x && segment.y === position.y) {
+                    validPosition = false;
+                    break;
+                }
             }
-            for(let item of this.items) {
-                 if(item.x === position.x && item.y === position.y) valid = false;
+
+            // Check Collision with Existing Items
+            for (const item of this.items) {
+                if (item.x === position.x && item.y === position.y) {
+                    validPosition = false;
+                    break;
+                }
             }
         }
 
-        const rand = Math.random();
-        let type = 'GREEN';
-        if (rand < CONFIG.SPAWN_RATES.GREEN) type = 'GREEN';
-        else if (rand < CONFIG.SPAWN_RATES.GREEN + CONFIG.SPAWN_RATES.GOLD) type = 'GOLD';
-        else if (rand < CONFIG.SPAWN_RATES.GREEN + CONFIG.SPAWN_RATES.GOLD + CONFIG.SPAWN_RATES.BLUE) type = 'BLUE';
-        else type = 'RED';
+        if (validPosition) {
+            // Determine Type based on Spawn Rates
+            const rand = Math.random();
+            let type = 'GREEN';
+            
+            if (rand < CONFIG.SPAWN_RATES.GREEN) {
+                type = 'GREEN';
+            } else if (rand < CONFIG.SPAWN_RATES.GREEN + CONFIG.SPAWN_RATES.GOLD) {
+                type = 'GOLD';
+            } else if (rand < CONFIG.SPAWN_RATES.GREEN + CONFIG.SPAWN_RATES.GOLD + CONFIG.SPAWN_RATES.BLUE) {
+                type = 'BLUE';
+            } else {
+                type = 'RED';
+            }
 
-        this.items.push({ 
-            x: position.x, 
-            y: position.y, 
-            type: type,
-            spawnTime: Date.now()
-        });
+            this.items.push({
+                x: position.x,
+                y: position.y,
+                type: type,
+                spawnTime: Date.now()
+            });
+        }
     }
 
     update() {
@@ -362,91 +405,110 @@ class Game {
         this.snake.update(this.input.direction);
 
         const head = this.snake.body[0];
-        let ate = false;
-        let eatenItemIndex = -1;
+        // If snake died during update, stop here
+        if (!head) return; 
 
-        // Despawn Gold Logic
         const now = Date.now();
-        for (let i = this.items.length - 1; i >= 0; i--) {
-            const item = this.items[i];
-            if (item.type === 'GOLD') {
-                if (now - item.spawnTime > CONFIG.GOLD_LIFETIME) {
-                    this.items.splice(i, 1);
-                    this.spawnSingleItem(); 
-                }
+
+        // 1. Remove Expired Gold Orbs
+        this.items = this.items.filter(item => {
+            if (item.type === 'GOLD' && now - item.spawnTime > CONFIG.GOLD_LIFETIME) {
+                // Expired: Spawn a replacement to keep item count up
+                this.spawnSingleItem(); 
+                return false; // Remove from array
             }
+            return true; // Keep in array
+        });
+
+        // 2. Ensure we always have max items (if some expired or were missing)
+        while (this.items.length < CONFIG.MAX_ITEMS) {
+            this.spawnSingleItem();
         }
 
-        // Eat Logic
+        // 3. Check for Item Collection
+        let eatenIndex = -1;
         for (let i = 0; i < this.items.length; i++) {
-            const item = this.items[i];
-            if (head.x === item.x && head.y === item.y) {
-                eatenItemIndex = i;
-                ate = true;
-                break; 
+            if (this.items[i].x === head.x && this.items[i].y === head.y) {
+                eatenIndex = i;
+                break;
             }
         }
 
-        if (ate) {
-            const item = this.items[eatenItemIndex];
+        if (eatenIndex > -1) {
+            // --- ITEM EATEN ---
+            const item = this.items[eatenIndex];
+            
+            // Add Score
             this.snake.score += CONFIG.SCORES[item.type];
+            // Ensure score doesn't drop below 0 (just in case)
+            if (this.snake.score < 0) this.snake.score = 0;
+
+            // Handle Special Effects
+            this.handleItemEffect(item);
+
+            // Refresh Spawns (The "Chaos" Mechanic)
+            this.spawnInitialItems();
             this.updateUI();
-            this.handleItemCollection(item);
-            this.refreshSpawns();
+
         } else {
-            if (this.snake.alive) {
-                this.snake.body.pop();
-            }
+            // --- NO ITEM EATEN ---
+            // Remove tail to maintain current length (movement)
+            this.snake.body.pop();
         }
 
-        if (!this.snake.alive && !this.respawnTimer && !this.waitingForRespawnInput) {
+        // 4. Death Check (Post-movement)
+        if (!this.snake.alive && !this.respawnTimer && !this.waitingForInput) {
             this.handleDeath();
         }
     }
 
-    handleItemCollection(item) {
-        if (item.type === 'RED') {
-            this.log("Red Star! Sending Sabotage...", 'sabotage-msg');
-        } else if (item.type === 'BLUE') {
-            const buffs = ['SpeedDown', 'ShortenTail', 'Invincible'];
-            const randomBuff = buffs[Math.floor(Math.random() * buffs.length)];
-            this.log(`Blue Orb! Buff: ${randomBuff}`, 'buff-msg');
-             if (randomBuff === 'ShortenTail' && this.snake.body.length > 3) {
-                this.snake.body.pop();
-            }
-        } else if (item.type === 'GOLD') {
-            this.log("GOLD ORB! +15 Points", 'highlight');
+    handleItemEffect(item) {
+        switch (item.type) {
+            case 'RED':
+                this.log('Red Star! Sabotage sent.', 'sabotage-msg');
+                break;
+            case 'BLUE':
+                const buffs = ['SpeedDown', 'ShortenTail', 'Invincible'];
+                const selectedBuff = buffs[Math.floor(Math.random() * buffs.length)];
+                this.log(`Blue Orb! Buff: ${selectedBuff}`, 'buff-msg');
+                
+                if (selectedBuff === 'ShortenTail' && this.snake.body.length > 3) {
+                    this.snake.body.pop();
+                }
+                break;
+            case 'GOLD':
+                this.log('GOLD ORB! +15 Points', 'highlight');
+                break;
         }
     }
 
     handleDeath() {
-        this.uiStatus.textContent = "DEAD (Respawn 3s)";
-        this.uiStatus.style.color = "red";
+        this.uiStatus.textContent = 'DEAD (Respawn 3s)';
+        this.uiStatus.style.color = 'red';
         this.log(`Died. Score: ${this.snake.score}. Penalizing...`, 'sabotage-msg');
-        
-        // 1. Wait 3 seconds (Cooldown)
+
+        // Start 3s Timer
         this.respawnTimer = setTimeout(() => {
-            // 2. Change State to "Waiting for Input"
-            this.waitingForRespawnInput = true;
-            this.uiStatus.textContent = "PRESS ANY KEY";
-            this.uiStatus.style.color = "white"; // Make it visible
-            
-            // Clear the timer so we don't loop
+            this.waitingForInput = true;
+            this.uiStatus.textContent = 'PRESS ANY KEY';
+            this.uiStatus.style.color = 'white';
             this.respawnTimer = null;
         }, 3000);
     }
 
-    // --- NEW: Actual Respawn Trigger ---
     triggerRespawn() {
-        this.waitingForRespawnInput = false; // Lock input again
+        this.waitingForInput = false;
         
+        // Calculate new length based on conserved score (Conservation of Mass)
+        // Formula: (Score / 5) + 3 Base
         const newLength = Math.max(3, Math.floor(this.snake.score / 5) + 3);
-        this.snake.reset(newLength);
-        this.refreshSpawns();
         
-        this.uiStatus.textContent = "ALIVE";
-        this.uiStatus.style.color = "lime";
-        this.input.nextDirection = { x: 1, y: 0 };
+        this.snake.reset(newLength);
+        this.spawnInitialItems();
+        
+        this.uiStatus.textContent = 'ALIVE';
+        this.uiStatus.style.color = 'lime';
+        this.input.nextDirection = { x: 1, y: 0 }; // Reset Input
         this.updateUI();
     }
 
@@ -456,8 +518,11 @@ class Game {
     }
 
     draw() {
-        this.ctx.fillStyle = '#000';
-        this.ctx.fillRect(0, 0, CONFIG.CANVAS_SIZE, CONFIG.CANVAS_SIZE);
+        const ctx = this.ctx;
+        
+        // Clear Screen
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, CONFIG.CANVAS_SIZE, CONFIG.CANVAS_SIZE);
 
         const now = Date.now();
 
@@ -467,65 +532,79 @@ class Game {
             const py = item.y * CONFIG.GRID_SIZE;
             const center = CONFIG.GRID_SIZE / 2;
 
-            if (item.type === 'GREEN') this.ctx.fillStyle = CONFIG.COLORS.ORB_GREEN;
-            else if (item.type === 'GOLD') this.ctx.fillStyle = CONFIG.COLORS.ORB_GOLD;
-            else if (item.type === 'BLUE') this.ctx.fillStyle = CONFIG.COLORS.ORB_BLUE;
-            else if (item.type === 'RED') this.ctx.fillStyle = CONFIG.COLORS.ORB_RED;
+            ctx.beginPath();
+            let color = CONFIG.COLORS.ORB_GREEN;
 
+            // Determine Color & Blink Logic
             if (item.type === 'GOLD') {
                 const age = now - item.spawnTime;
-                if (age > CONFIG.GOLD_LIFETIME - 1500) {
-                     if (Math.floor(Date.now() / 100) % 2 === 0) {
-                         this.ctx.fillStyle = '#fff'; 
-                     }
-                }
+                // Blink white in last 1.5 seconds
+                const isBlinking = age > CONFIG.GOLD_LIFETIME - 1500 && Math.floor(now / 150) % 2 === 0;
+                color = isBlinking ? '#fff' : CONFIG.COLORS.ORB_GOLD;
+            } else if (item.type === 'BLUE') {
+                color = CONFIG.COLORS.ORB_BLUE;
+            } else if (item.type === 'RED') {
+                color = CONFIG.COLORS.ORB_RED;
             }
 
-            this.ctx.beginPath();
-            this.ctx.arc(px + center, py + center, center - 2, 0, Math.PI * 2);
-            this.ctx.fill();
+            ctx.fillStyle = color;
 
-            if (item.type === 'GOLD') {
-                this.ctx.strokeStyle = '#fff';
-                this.ctx.lineWidth = 2;
-                this.ctx.stroke();
-            }
             if (item.type === 'RED') {
-                this.ctx.fillStyle = CONFIG.COLORS.ORB_RED;
-                this.ctx.beginPath();
-                this.ctx.moveTo(px + center, py);
-                this.ctx.lineTo(px + CONFIG.GRID_SIZE, py + center);
-                this.ctx.lineTo(px + center, py + CONFIG.GRID_SIZE);
-                this.ctx.lineTo(px, py + center);
-                this.ctx.fill();
+                // Draw Diamond for Red Star
+                ctx.moveTo(px + center, py);
+                ctx.lineTo(px + CONFIG.GRID_SIZE, py + center);
+                ctx.lineTo(px + center, py + CONFIG.GRID_SIZE);
+                ctx.lineTo(px, py + center);
+                ctx.fill();
+            } else {
+                // Draw Circle for Orbs
+                ctx.arc(px + center, py + center, center - 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Extra ring for Gold
+                if (item.type === 'GOLD') {
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
             }
         }
 
-        if (this.snake.alive || Math.floor(Date.now() / 200) % 2 === 0) {
-            this.snake.body.forEach((seg, index) => {
-                this.ctx.fillStyle = index === 0 ? CONFIG.COLORS.SNAKE_HEAD : CONFIG.COLORS.SNAKE_BODY;
-                this.ctx.fillRect(
-                    seg.x * CONFIG.GRID_SIZE + 1, 
-                    seg.y * CONFIG.GRID_SIZE + 1, 
-                    CONFIG.GRID_SIZE - 2, 
+        // Draw Snake
+        if (this.snake.alive || Math.floor(now / 200) % 2 === 0) { // Blink if dead
+            this.snake.body.forEach((segment, index) => {
+                ctx.fillStyle = index === 0 ? CONFIG.COLORS.SNAKE_HEAD : CONFIG.COLORS.SNAKE_BODY;
+                ctx.fillRect(
+                    segment.x * CONFIG.GRID_SIZE + 1,
+                    segment.y * CONFIG.GRID_SIZE + 1,
+                    CONFIG.GRID_SIZE - 2,
                     CONFIG.GRID_SIZE - 2
                 );
             });
         }
     }
 
-    gameLoop(currentTime) {
-        const deltaTime = currentTime - this.lastTime;
-        if (deltaTime > this.tickInterval) {
-            this.update();
-            this.draw();
-            this.lastTime = currentTime - (deltaTime % this.tickInterval);
+    gameLoop(timestamp) {
+        try {
+            const deltaTime = timestamp - this.lastTime;
+            
+            if (deltaTime > this.tickInterval) {
+                this.update();
+                this.draw();
+                // Adjust for lag to keep smooth tick rate
+                this.lastTime = timestamp - (deltaTime % this.tickInterval);
+            }
+        } catch (err) {
+            console.error("Game Loop Error:", err);
+            this.log('Engine error — recovered safely.', 'sabotage-msg');
         }
-        requestAnimationFrame(this.gameLoop.bind(this));
+        
+        requestAnimationFrame((t) => this.gameLoop(t));
     }
 }
 
-window.onload = () => { const game = new Game(); };
+// Start Game
+window.onload = () => new Game();
 </script>
 
 </body>
