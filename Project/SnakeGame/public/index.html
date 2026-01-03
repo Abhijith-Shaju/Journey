@@ -3,19 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snake Sabotage - Beta Stable</title>
+    <title>Snake Sabotage - Phase 1 (Clean)</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        :root { --bg: #1a1a2e; --text: #e94560; --accent: #16213e; --grid: #0f3460; }
-        body { margin: 0; background: var(--bg); color: #fff; font-family: 'Courier New', monospace; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        #game-container { display: flex; width: 100%; max-width: 1400px; height: 90vh; gap: 20px; padding: 20px; box-sizing: border-box; }
-        #left-sidebar { flex: 1; background: var(--accent); border: 2px solid var(--grid); display: flex; flex-direction: column; padding: 15px; border-radius: 8px; }
-        #kill-feed { flex-grow: 1; overflow-y: auto; border-top: 1px solid var(--grid); padding-top: 10px; font-size: 0.8rem; color: #ccc; }
-        #center-stage { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        canvas { background: #000; box-shadow: 0 0 20px rgba(233, 69, 96, 0.2); border: 4px solid var(--text); image-rendering: pixelated; }
-        #status-bar { margin-top: 10px; font-size: 1.2rem; font-weight: bold; display: flex; gap: 20px; }
-        #right-sidebar { flex: 0 0 300px; background: #222; border: 2px dashed #444; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #555; }
-        .highlight { color: var(--text); } .buff-msg { color: cyan; } .sabotage-msg { color: #ff4444; }
+        :root {
+            --bg-color: #1a1a2e;
+            --text-color: #e94560;
+            --accent-color: #16213e;
+            --grid-color: #0f3460;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* --- LAYOUT CONTAINER (Flexbox) --- */
+        #game-container {
+            display: flex;
+            width: 100%;
+            max-width: 1400px;
+            height: 90vh;
+            gap: 20px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* --- LEFT SIDEBAR (Leaderboard & Logs) --- */
+        #left-sidebar {
+            flex: 1;
+            background-color: var(--accent-color);
+            border: 2px solid var(--grid-color);
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        #leaderboard {
+            margin-bottom: 20px;
+        }
+
+        #kill-feed {
+            flex-grow: 1;
+            overflow-y: auto;
+            border-top: 1px solid var(--grid-color);
+            padding-top: 10px;
+            font-size: 0.8rem;
+            color: #ccc;
+        }
+
+        /* --- CENTER (The Game) --- */
+        #center-stage {
+            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        canvas {
+            background-color: #000;
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.2);
+            border: 4px solid var(--text-color);
+            image-rendering: pixelated; 
+        }
+
+        #status-bar {
+            margin-top: 10px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            display: flex;
+            gap: 20px;
+        }
+
+        /* --- RIGHT SIDEBAR (Ads) --- */
+        #right-sidebar {
+            flex: 0 0 300px; /* Fixed width for standard ad unit */
+            background-color: #222;
+            border: 2px dashed #444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            color: #555;
+        }
+
+        /* --- UI HELPERS --- */
+        .highlight { color: var(--text-color); }
+        .buff-msg { color: cyan; }
+        .sabotage-msg { color: #ff4444; }
     </style>
 </head>
 <body>
@@ -23,68 +108,134 @@
 <div id="game-container">
     <div id="left-sidebar">
         <h3>Leaderboard</h3>
-        <div id="leaderboard-list">Connecting...</div>
+        <div id="leaderboard-list">
+            <div class="row">1. YOU - <span id="ui-score">0</span></div>
+            <div class="row" style="color: #666">2. Bot_Alpha - 950</div>
+            <div class="row" style="color: #666">3. Bot_Beta - 820</div>
+        </div>
         <h3>Event Log</h3>
-        <div id="kill-feed"></div>
+        <div id="kill-feed">
+            <div>Welcome to Snake Sabotage.</div>
+            <div>Phase 1: Local Engine Test.</div>
+        </div>
     </div>
+
     <div id="center-stage">
         <canvas id="gameCanvas" width="600" height="600"></canvas>
         <div id="status-bar">
             <div>SCORE: <span id="score-display">0</span></div>
+            <div>LENGTH: <span id="length-display">3</span></div>
             <div>STATUS: <span id="status-display" style="color: lime">ALIVE</span></div>
         </div>
     </div>
-    <div id="right-sidebar"><div>Ad Space (300x600)</div></div>
+
+    <div id="right-sidebar">
+        <div>Ad Space (300x600)</div>
+    </div>
 </div>
 
 <script>
 /**
  * ==========================================
- * CONFIGURATION
+ * CONFIGURATION & CONSTANTS
  * ==========================================
  */
 const CONFIG = {
-    CANVAS_SIZE: 600, GRID_SIZE: 20, TICK_RATE: 12, 
-    MAX_ITEMS: 2, GOLD_LIFETIME: 5000, 
-    SPAWN_RATES: { GREEN: 0.60, GOLD: 0.10, BLUE: 0.15, RED: 0.15 },
-    SCORES: { GREEN: 5, GOLD: 15, BLUE: 0, RED: 0 },
-    COLORS: { SNAKE_HEAD: '#e94560', SNAKE_BODY: '#ff8a9d', ORB_GREEN: '#2ecc71', ORB_GOLD: '#f1c40f', ORB_BLUE: '#00ffff', ORB_RED: '#ff0000' }
+    CANVAS_SIZE: 600,
+    GRID_SIZE: 20,
+    TICK_RATE: 12,
+    
+    MAX_ITEMS: 2,
+    GOLD_LIFETIME: 5000,
+    
+    SPAWN_RATES: {
+        GREEN: 0.60,
+        GOLD: 0.10,
+        BLUE: 0.15,
+        RED: 0.15
+    },
+    
+    SCORES: {
+        GREEN: 5,
+        GOLD: 15,
+        BLUE: 0,
+        RED: 0
+    },
+    
+    COLORS: {
+        SNAKE_HEAD: '#e94560',
+        SNAKE_BODY: '#ff8a9d',
+        ORB_GREEN: '#2ecc71',
+        ORB_GOLD: '#f1c40f',
+        ORB_BLUE: '#00ffff',
+        ORB_RED: '#ff0000'
+    }
 };
+
 const TILE_COUNT = CONFIG.CANVAS_SIZE / CONFIG.GRID_SIZE;
 
 /**
  * ==========================================
  * INPUT HANDLER
  * ==========================================
+ * Manages keyboard input using e.code for layout independence.
  */
 class InputHandler {
     constructor() {
         this.direction = { x: 1, y: 0 };
         this.nextDirection = { x: 1, y: 0 };
-        this.inputLocked = false;
-        this.isImmune = false;
         document.addEventListener('keydown', (e) => this.handleKey(e));
     }
 
     handleKey(e) {
+        // Stop if locked (Sabotaged)
         if (this.inputLocked) return;
-        if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code)) e.preventDefault();
         
-        const d = this.direction;
-        switch(e.code) {
-            case 'KeyW': case 'ArrowUp': if (d.y === 0) this.nextDirection = { x: 0, y: -1 }; break;
-            case 'KeyS': case 'ArrowDown': if (d.y === 0) this.nextDirection = { x: 0, y: 1 }; break;
-            case 'KeyA': case 'ArrowLeft': if (d.x === 0) this.nextDirection = { x: -1, y: 0 }; break;
-            case 'KeyD': case 'ArrowRight': if (d.x === 0) this.nextDirection = { x: 1, y: 0 }; break;
+        // Prevent default scrolling behavior for arrow keys
+        if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
+            e.preventDefault();
+        }
+
+        const currentDir = this.direction;
+
+        switch (e.code) {
+            case 'KeyW':
+            case 'ArrowUp':
+                if (currentDir.y === 0) {
+                    this.nextDirection = { x: 0, y: -1 };
+                }
+                break;
+            case 'KeyS':
+            case 'ArrowDown':
+                if (currentDir.y === 0) {
+                    this.nextDirection = { x: 0, y: 1 };
+                }
+                break;
+            case 'KeyA':
+            case 'ArrowLeft':
+                if (currentDir.x === 0) {
+                    this.nextDirection = { x: -1, y: 0 };
+                }
+                break;
+            case 'KeyD':
+            case 'ArrowRight':
+                if (currentDir.x === 0) {
+                    this.nextDirection = { x: 1, y: 0 };
+                }
+                break;
         }
     }
-    update() { this.direction = this.nextDirection; }
+
+    update() {
+        this.direction = this.nextDirection;
+    }
 }
 
 /**
  * ==========================================
  * SNAKE CLASS
  * ==========================================
+ * Handles body segments, movement, and collision detection.
  */
 class Snake {
     constructor() {
@@ -94,113 +245,207 @@ class Snake {
     }
 
     reset(startLength = 3) {
-        this.alive = true;
-        this.invincible = false;
-        this.body = [];
+        // Ensure start length is valid
         const safeLength = Math.max(3, isNaN(startLength) ? 3 : startLength);
-        for (let i = 0; i < safeLength; i++) this.body.push({ x: 10 - i, y: 15 });
+        this.invincible = false;
+        this.alive = true;
+        this.body = [];
+        
+        // Spawn coordinates (horizontal start)
+        for (let i = 0; i < safeLength; i++) {
+            this.body.push({ x: 10 - i, y: 15 });
+        }
     }
 
     update(inputDirection) {
         if (!this.alive) return false;
 
-        const nextHead = { ...this.body[0] };
-        nextHead.x += inputDirection.x;
-        nextHead.y += inputDirection.y;
+        const currentHead = this.body[0];
 
-        // Wall Collision
-        if (nextHead.x < 0 || nextHead.y < 0 || nextHead.x >= TILE_COUNT || nextHead.y >= TILE_COUNT) {
-            if (this.invincible) return false; // Stop moving
-            this.die();
+        // PREDICT next head
+        const nextHead = { 
+            x: currentHead.x + inputDirection.x,
+            y: currentHead.y + inputDirection.y
+        };
+
+        // WALL COLLISION
+        const hitWall =
+            nextHead.x < 0 ||
+            nextHead.y < 0 ||
+            nextHead.x >= TILE_COUNT ||
+            nextHead.y >= TILE_COUNT;
+
+        if (hitWall) {
+            if (!this.invincible) {
+                this.die();
+            }
+
+            // BLOCK MOVEMENT IF INVINCIBLE
             return false;
         }
 
-        // Self Collision
-        for (let i = 0; i < this.body.length; i++) {
-            if (nextHead.x === this.body[i].x && nextHead.y === this.body[i].y) {
+        // SELF COLLISION
+        for (let s of this.body) {
+            if (nextHead.x === s.x && nextHead.y === s.y) {
                 if (!this.invincible) {
                     this.die();
                     return false;
                 }
+                break; // ghost through
             }
         }
 
+        // MOVE
         this.body.unshift(nextHead);
-        return true; 
+        return true;
     }
+
 
     die() {
         if (this.invincible) return;
         this.alive = false;
+        // Penalize score (Keep 80%)
         this.score = Math.max(0, Math.floor(this.score * 0.8));
     }
 }
 
 /**
  * ==========================================
- * GAME ENGINE
+ * MAIN GAME ENGINE
  * ==========================================
+ * Orchestrates the game loop, rendering, and game state.
  */
 class Game {
     constructor() {
+        // --- NEW: NETWORK CONNECTION ---
+        this.socket = io();
+        
+        this.socket.on('connect', () => {
+            console.log("Network Status: Connected with ID", this.socket.id);
+            this.log("Connected to Server.", "highlight");
+        });
+
+
+        this.socket.on('connect', () => {
+            console.log("Connected with ID:", this.socket.id);
+        });
+
+        // --- NEW: LISTEN FOR LEADERBOARD ---
+        this.socket.on('leaderboard_update', (leaderboard) => {
+            this.drawLeaderboard(leaderboard);
+        });
+
+        // --- NEW: LISTEN FOR ATTACKS ---
+        this.socket.on('sabotage_received', (data) => {
+            this.triggerSabotage(data.type);
+            this.log(`UNDER ATTACK! Effect: ${data.type}`, 'sabotage-msg');
+        });
+
+        // -------------------------------
+
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
-        this.socket = io();
         
         this.input = new InputHandler();
         this.snake = new Snake();
-        this.items = [];
         
+        this.items = [];
+        this.spawnInitialItems();
+
         this.lastTime = 0;
         this.tickInterval = 1000 / CONFIG.TICK_RATE;
+
+        this.skipTailThisTick = false;
+
+        // Respawn State Flags
         this.waitingForInput = false;
         this.respawnTimer = null;
 
-        // UI Refs
+        // UI References
         this.uiScore = document.getElementById('score-display');
         this.uiMainScore = document.getElementById('ui-score');
+        this.uiLength = document.getElementById('length-display');
         this.uiStatus = document.getElementById('status-display');
         this.uiLog = document.getElementById('kill-feed');
 
-        this.setupSocket();
-        
-        // Spawn initial
-        for(let i=0; i<CONFIG.MAX_ITEMS; i++) this.spawnSingleItem();
-
-        // Respawn Listener
+        // Global Listener for Respawn Key
         window.addEventListener('keydown', () => {
-            if (this.waitingForInput) this.triggerRespawn();
+            if (this.waitingForInput) {
+                this.triggerRespawn();
+            }
         });
 
-        requestAnimationFrame((t) => this.gameLoop(t));
+        // Start Loop
+        requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
     }
 
-    setupSocket() {
-        this.socket.on('connect', () => this.log("Connected to Server.", "highlight"));
-        this.socket.on('leaderboard_update', (data) => this.drawLeaderboard(data));
-        this.socket.on('sabotage_received', (data) => this.triggerSabotage(data.type));
+    log(msg, className) {
+        const div = document.createElement('div');
+        div.textContent = `> ${msg}`;
+        if (className) div.className = className;
+        this.uiLog.prepend(div);
+    }
+
+    spawnInitialItems() {
+        this.items = [];
+        for (let i = 0; i < CONFIG.MAX_ITEMS; i++) {
+            this.spawnSingleItem();
+        }
     }
 
     spawnSingleItem() {
-        let position, valid = false, attempts = 0;
-        // Try 200 times to find a spot
-        while (!valid && attempts < 200) {
+        let attempts = 0;
+        let validPosition = false;
+        let position = { x: 0, y: 0 };
+
+        // Try to find a free spot 200 times before giving up (prevents infinite loop)
+        while (!validPosition && attempts < 200) {
             attempts++;
-            position = { x: Math.floor(Math.random() * TILE_COUNT), y: Math.floor(Math.random() * TILE_COUNT) };
-            valid = true;
-            for (const seg of this.snake.body) if (seg.x === position.x && seg.y === position.y) valid = false;
-            for (const item of this.items) if (item.x === position.x && item.y === position.y) valid = false;
+            position = {
+                x: Math.floor(Math.random() * TILE_COUNT),
+                y: Math.floor(Math.random() * TILE_COUNT)
+            };
+
+            validPosition = true;
+
+            // Check Collision with Snake
+            for (const segment of this.snake.body) {
+                if (segment.x === position.x && segment.y === position.y) {
+                    validPosition = false;
+                    break;
+                }
+            }
+
+            // Check Collision with Existing Items
+            for (const item of this.items) {
+                if (item.x === position.x && item.y === position.y) {
+                    validPosition = false;
+                    break;
+                }
+            }
         }
 
-        if (valid) {
-            const r = Math.random();
+        if (validPosition) {
+            // Determine Type based on Spawn Rates
+            const rand = Math.random();
             let type = 'GREEN';
-            if (r < CONFIG.SPAWN_RATES.GREEN) type = 'GREEN';
-            else if (r < CONFIG.SPAWN_RATES.GREEN + CONFIG.SPAWN_RATES.GOLD) type = 'GOLD';
-            else if (r < CONFIG.SPAWN_RATES.GREEN + CONFIG.SPAWN_RATES.GOLD + CONFIG.SPAWN_RATES.BLUE) type = 'BLUE';
-            else type = 'RED';
+            
+            if (rand < CONFIG.SPAWN_RATES.GREEN) {
+                type = 'GREEN';
+            } else if (rand < CONFIG.SPAWN_RATES.GREEN + CONFIG.SPAWN_RATES.GOLD) {
+                type = 'GOLD';
+            } else if (rand < CONFIG.SPAWN_RATES.GREEN + CONFIG.SPAWN_RATES.GOLD + CONFIG.SPAWN_RATES.BLUE) {
+                type = 'BLUE';
+            } else {
+                type = 'RED';
+            }
 
-            this.items.push({ x: position.x, y: position.y, type, spawnTime: Date.now() });
+            this.items.push({
+                x: position.x,
+                y: position.y,
+                type: type,
+                spawnTime: Date.now()
+            });
         }
     }
 
@@ -208,35 +453,31 @@ class Game {
         if (!this.snake.alive) return;
 
         this.input.update();
-        
-        // 1. Move Snake
         const moved = this.snake.update(this.input.direction);
 
-        // 2. Handle Blocked/Dead State
-        if (!moved) {
-            if (!this.snake.alive && !this.waitingForInput && !this.respawnTimer) {
-                this.handleDeath();
-            }
-            return; // EXIT: Do not check items or pop tail
-        }
 
         const head = this.snake.body[0];
+        // If snake died during update, stop here
+        if (!head) return; 
+
         const now = Date.now();
 
-        // 3. Manage Items (Remove old Gold)
+        // 1. Remove Expired Gold Orbs
         this.items = this.items.filter(item => {
             if (item.type === 'GOLD' && now - item.spawnTime > CONFIG.GOLD_LIFETIME) {
-                return false; 
+                // Expired: Spawn a replacement to keep item count up
+                this.spawnSingleItem(); 
+                return false; // Remove from array
             }
-            return true;
+            return true; // Keep in array
         });
 
-        // 4. Replenish Items (FIX: Use IF to prevent Infinite Loop Freeze)
-        if (this.items.length < CONFIG.MAX_ITEMS) {
+        // 2. Ensure we always have max items (if some expired or were missing)
+        while (this.items.length < CONFIG.MAX_ITEMS) {
             this.spawnSingleItem();
         }
 
-        // 5. Check Eating
+        // 3. Check for Item Collection
         let eatenIndex = -1;
         for (let i = 0; i < this.items.length; i++) {
             if (this.items[i].x === head.x && this.items[i].y === head.y) {
@@ -246,55 +487,108 @@ class Game {
         }
 
         if (eatenIndex > -1) {
-            // ATE ITEM
+            // --- ITEM EATEN ---
             const item = this.items[eatenIndex];
-            this.snake.score = Math.max(0, this.snake.score + CONFIG.SCORES[item.type]);
+            
+            // Add Score
+            this.snake.score += CONFIG.SCORES[item.type];
+            // Ensure score doesn't drop below 0 (just in case)
+            if (this.snake.score < 0) this.snake.score = 0;
+
+            // Handle Special Effects
             this.handleItemEffect(item);
-            
-            // Remove eaten item
-            this.items.splice(eatenIndex, 1);
-            
-            // Force spawn new one immediately
-            this.spawnSingleItem(); 
+
+            // Refresh Spawns (The "Chaos" Mechanic)
+            this.spawnInitialItems();
             this.updateUI();
+
         } else {
-            // DID NOT EAT: Pop Tail
-            this.snake.body.pop();
+            // --- NO ITEM EATEN ---
+            // Remove tail to maintain current length (movement)
+                if (moved && !this.skipTailThisTick) {
+                    this.snake.body.pop();
+                }
+        }
+        this.skipTailThisTick = false; // reset every tick
+
+        // 4. Death Check (Post-movement)
+        if (!this.snake.alive && !this.respawnTimer && !this.waitingForInput) {
+            this.handleDeath();
         }
     }
 
     handleItemEffect(item) {
         if (item.type === 'RED') {
-            this.log('Red Star! Sending Sabotage...', 'sabotage-msg');
+            this.log("Red Star! Sending Sabotage...", 'sabotage-msg');
             this.socket.emit('sabotage_sent', { type: 'NO_TURN' });
         } 
         else if (item.type === 'BLUE') {
             const buffs = ['Invincible', 'ShortenTail'];
-            const buff = buffs[Math.floor(Math.random() * buffs.length)];
-            
-            if (buff === 'ShortenTail' && this.snake.body.length > 3) {
-                this.snake.body.pop();
-                this.log("Tail Shortened!", "buff-msg");
-            } else if (buff === 'Invincible') {
+            const randomBuff = buffs[Math.floor(Math.random() * buffs.length)];
+
+            // ====== SHORTEN TAIL ======
+            if (randomBuff === 'ShortenTail') {
+                const shrinkAmount = 3;   // remove 3 to offset growth
+                const minLength = 3;
+
+                const newLength = Math.max(
+                    minLength,
+                    this.snake.body.length - shrinkAmount
+                );
+
+                this.snake.body.splice(newLength);
+                this.log(`Buff: Tail Shortened (${this.snake.body.length - newLength})`, 'buff-msg');
+                
+                this.updateUI();
+            }
+
+            // ====== INVINCIBLE ======
+            else if (randomBuff === 'Invincible') {
                 this.snake.invincible = true;
-                this.log("INVINCIBLE (3s)!", "buff-msg");
+                this.canvas.style.boxShadow = "0 0 25px cyan";
+                this.log("Buff: INVINCIBLE (3s)", 'buff-msg');
+
                 setTimeout(() => {
                     this.snake.invincible = false;
-                    this.log("Invincibility ended.", "highlight");
+                    this.canvas.style.boxShadow = "0 0 20px rgba(233, 69, 96, 0.2)";
+                    this.log("Invincibility Ended", 'highlight');
                 }, 3000);
+
+                this.updateUI();
             }
-        } 
+        }
+
         else if (item.type === 'GOLD') {
-            this.log('GOLD ORB! +15 Points', 'highlight');
+            this.log("GOLD ORB! +15 Points", 'highlight');
+        }
+    }
+
+    triggerSabotage(type) {
+        // Visual Feedback (Flash Screen Red)
+        this.canvas.style.borderColor = 'red';
+        setTimeout(() => this.canvas.style.borderColor = '#e94560', 500);
+
+        if (type === 'NO_TURN') {
+            // Disable turning for 2 seconds
+            this.input.inputLocked = true;
+            
+            setTimeout(() => {
+                this.input.inputLocked = false;
+                this.log("Controls Restored.", "highlight");
+            }, 2000);
         }
     }
 
     handleDeath() {
+        // 1. Mark as dead locally
         this.uiStatus.textContent = 'DEAD (Respawn 3s)';
         this.uiStatus.style.color = 'red';
         this.log(`Died. Score: ${this.snake.score}. Penalizing...`, 'sabotage-msg');
-        this.updateUI();
 
+        // 2. CRITICAL FIX: Tell the server "I am DEAD" right now!
+        this.updateUI(); 
+
+        // 3. Start the timer
         this.respawnTimer = setTimeout(() => {
             this.waitingForInput = true;
             this.uiStatus.textContent = 'PRESS ANY KEY';
@@ -305,138 +599,151 @@ class Game {
 
     triggerRespawn() {
         this.waitingForInput = false;
-        // Safety: Ensure input is unlocked
-        this.input.inputLocked = false; 
         
+        // Calculate new length based on conserved score (Conservation of Mass)
+        // Formula: (Score / 5) + 3 Base
         const newLength = Math.max(3, Math.floor(this.snake.score / 5) + 3);
-        this.snake.reset(newLength);
         
-        // Clear items and respawn fresh set
-        this.items = [];
-        for(let i=0; i<CONFIG.MAX_ITEMS; i++) this.spawnSingleItem();
+        this.snake.reset(newLength);
+        this.spawnInitialItems();
         
         this.uiStatus.textContent = 'ALIVE';
         this.uiStatus.style.color = 'lime';
-        this.input.nextDirection = { x: 1, y: 0 };
+        this.input.nextDirection = { x: 1, y: 0 }; // Reset Input
         this.updateUI();
-    }
-
-    triggerSabotage(type) {
-        if (this.input.isImmune) {
-            this.log("Blocked Sabotage (Immune)!", "buff-msg");
-            return;
-        }
-        this.canvas.style.borderColor = 'red';
-        setTimeout(() => this.canvas.style.borderColor = '#e94560', 500);
-
-        if (type === 'NO_TURN') {
-            this.input.inputLocked = true;
-            this.log("FROZEN! Controls Locked.", "sabotage-msg");
-            setTimeout(() => {
-                this.input.inputLocked = false;
-                this.activateImmunity();
-            }, 2000);
-        }
-    }
-
-    activateImmunity() {
-        this.input.isImmune = true;
-        this.canvas.style.borderColor = '#fff'; 
-        this.log("Cleanse Active (3s Immunity)", "highlight");
-        setTimeout(() => {
-            this.input.isImmune = false;
-            this.canvas.style.borderColor = '#e94560';
-        }, 3000);
     }
 
     updateUI() {
         this.uiScore.textContent = this.snake.score;
         this.uiMainScore.textContent = this.snake.score;
+        this.uiLength.textContent = this.snake.body.length;
+
+        // --- NEW: REPORT TO SERVER ---
         this.socket.emit('sync_stats', { 
-            score: this.snake.score, 
-            status: this.snake.alive ? 'ALIVE' : 'DEAD' 
+            score: this.snake.score,
+            status: this.snake.alive ? 'ALIVE' : 'DEAD'
         });
     }
 
     drawLeaderboard(data) {
         const list = document.getElementById('leaderboard-list');
-        list.innerHTML = '';
+        list.innerHTML = ''; // Clear old list
+
+        // Take top 10
         data.slice(0, 10).forEach((player, index) => {
             const div = document.createElement('div');
             div.className = 'row';
+            
+            // Highlight myself
             if (player.id === this.socket.id) {
-                div.style.color = '#e94560'; div.style.fontWeight = 'bold';
+                div.style.color = '#e94560';
+                div.style.fontWeight = 'bold';
                 div.textContent = `${index + 1}. YOU - ${player.score}`;
             } else {
                 div.style.color = '#ccc';
                 div.textContent = `${index + 1}. Player ${player.id.substr(0,4)} - ${player.score}`;
             }
-            if (player.status === 'DEAD') { div.style.textDecoration = 'line-through'; div.style.opacity = '0.5'; }
+            
+            // Show Dead Status
+            if (player.status === 'DEAD') {
+                div.style.textDecoration = 'line-through';
+                div.style.opacity = '0.5';
+            }
+
             list.appendChild(div);
         });
     }
 
     draw() {
         const ctx = this.ctx;
-        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, CONFIG.CANVAS_SIZE, CONFIG.CANVAS_SIZE);
+        
+        // Clear Screen
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, CONFIG.CANVAS_SIZE, CONFIG.CANVAS_SIZE);
+
         const now = Date.now();
 
-        // Items
+        // Draw Items
         for (const item of this.items) {
             const px = item.x * CONFIG.GRID_SIZE;
             const py = item.y * CONFIG.GRID_SIZE;
-            const c = CONFIG.GRID_SIZE / 2;
+            const center = CONFIG.GRID_SIZE / 2;
+
+            ctx.beginPath();
             let color = CONFIG.COLORS.ORB_GREEN;
-            
+
+            // Determine Color & Blink Logic
             if (item.type === 'GOLD') {
                 const age = now - item.spawnTime;
-                const blink = age > CONFIG.GOLD_LIFETIME - 1500 && Math.floor(now / 150) % 2 === 0;
-                color = blink ? '#fff' : CONFIG.COLORS.ORB_GOLD;
-            } else if (item.type === 'BLUE') color = CONFIG.COLORS.ORB_BLUE;
-            else if (item.type === 'RED') color = CONFIG.COLORS.ORB_RED;
+                // Blink white in last 1.5 seconds
+                const isBlinking = age > CONFIG.GOLD_LIFETIME - 1500 && Math.floor(now / 150) % 2 === 0;
+                color = isBlinking ? '#fff' : CONFIG.COLORS.ORB_GOLD;
+            } else if (item.type === 'BLUE') {
+                color = CONFIG.COLORS.ORB_BLUE;
+            } else if (item.type === 'RED') {
+                color = CONFIG.COLORS.ORB_RED;
+            }
 
             ctx.fillStyle = color;
-            ctx.beginPath();
+
             if (item.type === 'RED') {
-                ctx.moveTo(px + c, py); ctx.lineTo(px + CONFIG.GRID_SIZE, py + c);
-                ctx.lineTo(px + c, py + CONFIG.GRID_SIZE); ctx.lineTo(px, py + c); ctx.fill();
+                // Draw Diamond for Red Star
+                ctx.moveTo(px + center, py);
+                ctx.lineTo(px + CONFIG.GRID_SIZE, py + center);
+                ctx.lineTo(px + center, py + CONFIG.GRID_SIZE);
+                ctx.lineTo(px, py + center);
+                ctx.fill();
             } else {
-                ctx.arc(px + c, py + c, c - 2, 0, Math.PI * 2); ctx.fill();
-                if (item.type === 'GOLD') { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke(); }
+                // Draw Circle for Orbs
+                ctx.arc(px + center, py + center, center - 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Extra ring for Gold
+                if (item.type === 'GOLD') {
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
             }
         }
 
-        // Snake
-        if (this.snake.alive || Math.floor(now / 200) % 2 === 0) {
-            this.snake.body.forEach((seg, i) => {
-                ctx.fillStyle = i === 0 ? CONFIG.COLORS.SNAKE_HEAD : CONFIG.COLORS.SNAKE_BODY;
-                if (this.snake.invincible) ctx.fillStyle = '#00ffff'; 
-                ctx.fillRect(seg.x * CONFIG.GRID_SIZE + 1, seg.y * CONFIG.GRID_SIZE + 1, CONFIG.GRID_SIZE - 2, CONFIG.GRID_SIZE - 2);
+        // Draw Snake
+        if (this.snake.alive || Math.floor(now / 200) % 2 === 0) { // Blink if dead
+            this.snake.body.forEach((segment, index) => {
+                ctx.fillStyle = index === 0 ? CONFIG.COLORS.SNAKE_HEAD : CONFIG.COLORS.SNAKE_BODY;
+                if (this.snake.invincible) this.ctx.fillStyle = '#00ffff';
+                ctx.fillRect(
+                    segment.x * CONFIG.GRID_SIZE + 1,
+                    segment.y * CONFIG.GRID_SIZE + 1,
+                    CONFIG.GRID_SIZE - 2,
+                    CONFIG.GRID_SIZE - 2
+                );
             });
         }
     }
 
-    gameLoop(t) {
+    gameLoop(timestamp) {
         try {
-            const dt = t - this.lastTime;
-            if (dt > this.tickInterval) {
+            const deltaTime = timestamp - this.lastTime;
+            
+            if (deltaTime > this.tickInterval) {
                 this.update();
                 this.draw();
-                this.lastTime = t - (dt % this.tickInterval);
+                // Adjust for lag to keep smooth tick rate
+                this.lastTime = timestamp - (deltaTime % this.tickInterval);
             }
-        } catch (err) { console.error(err); }
-        requestAnimationFrame((time) => this.gameLoop(time));
-    }
-
-    log(msg, className) {
-        const div = document.createElement('div');
-        div.textContent = `> ${msg}`;
-        if (className) div.className = className;
-        this.uiLog.prepend(div);
+        } catch (err) {
+            console.error("Game Loop Error:", err);
+            this.log('Engine error — recovered safely.', 'sabotage-msg');
+        }
+        
+        requestAnimationFrame((t) => this.gameLoop(t));
     }
 }
 
+// Start Game
 window.onload = () => new Game();
 </script>
+
 </body>
 </html>
