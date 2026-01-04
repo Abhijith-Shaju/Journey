@@ -101,38 +101,62 @@
         .highlight { color: var(--text-color); }
         .buff-msg { color: cyan; }
         .sabotage-msg { color: #ff4444; }
+
+        /* --- GAME OVER OVERLAY --- */
+        #game-over-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            backdrop-filter: blur(5px);
+        }
+        #winner-text { font-size: 3rem; color: gold; text-shadow: 0 0 20px gold; margin-bottom: 20px; text-align: center; }
+        #countdown-text { font-size: 1.5rem; color: #fff; }
     </style>
 </head>
 <body>
-
-<div id="game-container">
-    <div id="left-sidebar">
-        <h3>Leaderboard</h3>
-        <div id="leaderboard-list">
-            <div class="row">1. YOU - <span id="ui-score">0</span></div>
-            <div class="row" style="color: #666">2. Bot_Alpha - 950</div>
-            <div class="row" style="color: #666">3. Bot_Beta - 820</div>
-        </div>
-        <h3>Event Log</h3>
-        <div id="kill-feed">
-            <div>Welcome to Snake Sabotage.</div>
-            <div>Phase 1: Local Engine Test.</div>
-        </div>
+    <div id="game-over-overlay">
+        <div id="winner-text">WINNER: ???</div>
+        <div id="countdown-text">Next match in 10s...</div>
     </div>
 
-    <div id="center-stage">
-        <canvas id="gameCanvas" width="600" height="600"></canvas>
-        <div id="status-bar">
-            <div>SCORE: <span id="score-display">0</span></div>
-            <div>LENGTH: <span id="length-display">3</span></div>
-            <div>STATUS: <span id="status-display" style="color: lime">ALIVE</span></div>
+    <div id="game-container">
+        <div id="left-sidebar">
+            <h3>Leaderboard</h3>
+            <div id="leaderboard-list">
+                <div class="row">1. YOU - <span id="ui-score">0</span></div>
+                <div class="row" style="color: #666">2. Bot_Alpha - 950</div>
+                <div class="row" style="color: #666">3. Bot_Beta - 820</div>
+            </div>
+            <h3>Event Log</h3>
+            <div id="kill-feed">
+                <div>Welcome to Snake Sabotage.</div>
+                <div>Phase 1: Local Engine Test.</div>
+            </div>
+        </div>
+
+        <div id="center-stage">
+            <div style="width: 100%; display: flex; justify-content: center; margin-bottom: 10px;">
+                <div style="background: #222; padding: 5px 20px; border-radius: 5px; border: 1px solid #444; font-size: 1.5rem;">
+                    TIME: <span id="time-display" style="color: #fff">3:00</span>
+                </div>
+            </div>
+            <canvas id="gameCanvas" width="600" height="600"></canvas>
+            <div id="status-bar">
+                <div>SCORE: <span id="score-display">0</span></div>
+                <div>LENGTH: <span id="length-display">3</span></div>
+                <div>STATUS: <span id="status-display" style="color: lime">ALIVE</span></div>
+            </div>
+        </div>
+
+        <div id="right-sidebar">
+            <div>Ad Space (300x600)</div>
         </div>
     </div>
-
-    <div id="right-sidebar">
-        <div>Ad Space (300x600)</div>
-    </div>
-</div>
 
 <script>
 /**
@@ -330,15 +354,52 @@ class Game {
             console.log("Connected with ID:", this.socket.id);
         });
 
-        // --- NEW: LISTEN FOR LEADERBOARD ---
+        // --- LISTEN FOR LEADERBOARD ---
         this.socket.on('leaderboard_update', (leaderboard) => {
             this.drawLeaderboard(leaderboard);
         });
 
-        // --- NEW: LISTEN FOR ATTACKS ---
+        // --- LISTEN FOR ATTACKS ---
         this.socket.on('sabotage_received', (data) => {
             this.triggerSabotage(data.type);
             this.log(`UNDER ATTACK! Effect: ${data.type}`, 'sabotage-msg');
+        });
+
+
+
+        // --- NEW TIME & MATCH LISTENERS ---
+        this.socket.on('time_update', (seconds) => {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            this.uiTimer.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            if (seconds <= 10) this.uiTimer.style.color = 'red';
+            else this.uiTimer.style.color = 'white';
+        });
+
+        this.socket.on('match_ended', (data) => {
+            this.matchActive = false;
+            this.overlay.style.display = 'flex';
+            this.winnerText.textContent = `WINNER: ${data.winnerName}`;
+            
+            // Countdown visual logic
+            let timeLeft = data.nextMatchIn;
+            this.countdownText.textContent = `Next match in ${timeLeft}s...`;
+            const interval = setInterval(() => {
+                timeLeft--;
+                this.countdownText.textContent = `Next match in ${timeLeft}s...`;
+                if (timeLeft <= 0) clearInterval(interval);
+            }, 1000);
+        });
+
+        this.socket.on('match_started', () => {
+            this.matchActive = true;
+            this.overlay.style.display = 'none';
+            this.log("NEW MATCH STARTED!", "highlight");
+            this.snake.score = 0;
+            this.snake.reset(); // Full reset
+            this.items = []; // Clear board
+            for(let i=0; i<CONFIG.MAX_ITEMS; i++) this.spawnSingleItem();
+            this.updateUI();
         });
 
         // -------------------------------
@@ -360,6 +421,14 @@ class Game {
         // Respawn State Flags
         this.waitingForInput = false;
         this.respawnTimer = null;
+
+        this.matchActive = true; // New Flag
+
+        // UI Refs for Timer & Overlay
+        this.uiTimer = document.getElementById('time-display');
+        this.overlay = document.getElementById('game-over-overlay');
+        this.winnerText = document.getElementById('winner-text');
+        this.countdownText = document.getElementById('countdown-text');
 
         // UI References
         this.uiScore = document.getElementById('score-display');
@@ -450,7 +519,7 @@ class Game {
     }
 
     update() {
-        if (!this.snake.alive) return;
+        if (!this.snake.alive || !this.matchActive) return;
 
         this.input.update();
         const moved = this.snake.update(this.input.direction);
