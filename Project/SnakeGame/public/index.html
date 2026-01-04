@@ -564,17 +564,40 @@ class Game {
     }
 
     triggerSabotage(type) {
-        // Visual Feedback (Flash Screen Red)
+        console.log("!!! SABOTAGE RECEIVED !!! Type:", type); // <--- DEBUG LOG
+
+        // 1. Visual Feedback: Flash the CANVAS background Red (Unmissable)
+        const originalColor = this.canvas.style.backgroundColor;
+        this.canvas.style.backgroundColor = '#550000'; // Dark Red Background
         this.canvas.style.borderColor = 'red';
-        setTimeout(() => this.canvas.style.borderColor = '#e94560', 500);
+        
+        setTimeout(() => {
+            this.canvas.style.backgroundColor = '#000'; // Reset to Black
+            this.canvas.style.borderColor = '#e94560';
+        }, 500);
 
         if (type === 'NO_TURN') {
-            // Disable turning for 2 seconds
+            // 2. Logic: Disable turning
             this.input.inputLocked = true;
+            
+            // 3. UI: Update Status to show effect
+            const oldStatus = this.uiStatus.textContent;
+            this.uiStatus.textContent = "⚠ CONTROLS JAMMED ⚠";
+            this.uiStatus.style.color = "red";
+            this.log("FROZEN! Controls Locked.", "sabotage-msg");
             
             setTimeout(() => {
                 this.input.inputLocked = false;
+                
+                // Reset UI
+                this.uiStatus.textContent = "ALIVE";
+                this.uiStatus.style.color = "lime";
                 this.log("Controls Restored.", "highlight");
+                
+                // Optional: Give 3s immunity after getting hit
+                this.input.isImmune = true;
+                this.log("Cleanse Active (3s Immunity)", "highlight");
+                setTimeout(() => this.input.isImmune = false, 3000);
             }, 2000);
         }
     }

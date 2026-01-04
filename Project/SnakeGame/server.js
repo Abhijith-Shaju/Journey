@@ -5,20 +5,41 @@ const io = require('socket.io')(http);
 
 app.use(express.static('public'));
 
-// 1. The Lobby State (Where we store everyone's info)
+// --- GLOBAL STATE ---
 let players = {}; 
+const BOTS = [];
+
+// --- BOT CONFIGURATION ---
+const BOT_NAMES = ["Bot_Alpha", "Bot_Bravo", "Bot_Charlie", "Bot_Delta", "Bot_Echo"];
+const BOT_COUNT = 5;
+
+// Initialize Bots
+function initBots() {
+    for (let i = 0; i < BOT_COUNT; i++) {
+        const botId = `bot_${i}`;
+        // Start low (10-40 pts) so player can catch up
+        players[botId] = {
+            id: BOT_NAMES[i], 
+            score: Math.floor(Math.random() * 30) + 10, 
+            status: 'ALIVE',
+            isBot: true 
+        };
+        BOTS.push(botId);
+    }
+}
+
+initBots();
 
 io.on('connection', (socket) => {
     console.log(`[JOIN] ${socket.id}`);
 
-    // 2. Initialize new player in the lobby
     players[socket.id] = {
         id: socket.id,
         score: 0,
-        status: 'ALIVE'
+        status: 'ALIVE',
+        isBot: false
     };
 
-    // 3. Listen for Score Updates from Client
     socket.on('sync_stats', (data) => {
         if (players[socket.id]) {
             players[socket.id].score = data.score;
@@ -26,54 +47,96 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 4. Handle Sabotage Attacks
     socket.on('sabotage_sent', (payload) => {
-        // Get the current leaderboard sorted by score
-        const leaderboard = Object.values(players).sort((a, b) => b.score - a.score);
-        
-        // Find my current rank (Index 0 is Rank 1)
-        const myRankIndex = leaderboard.findIndex(p => p.id === socket.id);
-        
-        if (myRankIndex === -1) return; // Should not happen
-
-        let targetId = null;
-
-        // TARGETING LOGIC:
-        // If I am Rank 1 -> Attack Rank 2
-        // If I am Rank 2+ -> Attack the person above me (Rank - 1)
-        if (myRankIndex === 0) {
-            // I am #1, attack #2 (if they exist)
-            if (leaderboard.length > 1) targetId = leaderboard[1].id;
-        } else {
-            // Attack the person above me
-            targetId = leaderboard[myRankIndex - 1].id;
-        }
-
-        // Send the attack if we found a valid target
-        if (targetId) {
-            console.log(`[ATTACK] ${socket.id} -> ${targetId} (${payload.type})`);
-            io.to(targetId).emit('sabotage_received', {
-                type: payload.type,
-                attacker: socket.id
-            });
-        }
+        handleSabotage(socket.id, payload.type);
     });
 
-    // 4. Handle Disconnects
     socket.on('disconnect', () => {
         console.log(`[LEAVE] ${socket.id}`);
         delete players[socket.id];
     });
 });
 
-// 5. The Heartbeat: Broadcast Leaderboard every 500ms
+// --- CORE GAME LOOP (SERVER SIDE) ---
+
+// 1. Bot AI Loop (Score/Death Simulation) - Updates every 3s
 setInterval(() => {
-    // Convert object to array and sort by score (Highest first)
-    const leaderboard = Object.values(players).sort((a, b) => b.score - a.score);
+    BOTS.forEach(botId => {
+        const bot = players[botId];
+        if (!bot) return;
+        if (bot.status === 'DEAD') return; 
+
+        // 15% Chance to die
+        if (Math.random() < 0.15) {
+            bot.status = 'DEAD';
+            bot.score = Math.floor(bot.score * 0.8); 
+            setTimeout(() => { if (players[botId]) players[botId].status = 'ALIVE'; }, 3000);
+        } else {
+            // Gain small points (5-10)
+            const gain = Math.floor(Math.random() * 5) + 5;
+            bot.score += gain;
+        }
+    });
+}, 3000);
+
+// =========================================================
+// 2. BOT ATTACK LOOP (CHAOS MODE TUNING)
+// =========================================================
+setInterval(() => {
+    const aliveBots = BOTS.filter(id => players[id] && players[id].status === 'ALIVE');
+    if (aliveBots.length === 0) return;
+
+    // TUNING: 60% Chance a bot attacks every 3 seconds
+    // (Old setting was 20% every 8 seconds)
+    if (Math.random() > 0.6) return; 
+
+    const attackerId = aliveBots[Math.floor(Math.random() * aliveBots.length)];
     
-    // Send to EVERYONE
+    // Log it so you can see it happening in terminal
+    console.log(`[CHAOS] ${players[attackerId].id} sent a SABOTAGE!`);
+    
+    handleSabotage(attackerId, 'NO_TURN');
+
+}, 3000); // Check every 3 seconds!
+// =========================================================
+
+
+// 3. Leaderboard Broadcast
+setInterval(() => {
+    const leaderboard = Object.values(players).sort((a, b) => b.score - a.score);
     io.emit('leaderboard_update', leaderboard);
 }, 500);
+
+// --- HELPER FUNCTIONS ---
+function handleSabotage(attackerId, type) {
+    const leaderboard = Object.values(players).sort((a, b) => b.score - a.score);
+    
+    const myRankIndex = leaderboard.findIndex(p => 
+        (p.isBot && p.id === players[attackerId].id) || (!p.isBot && p.id === attackerId)
+    );
+
+    if (myRankIndex === -1) return;
+
+    let targetId = null;
+
+    if (myRankIndex === 0) {
+        if (leaderboard.length > 1) targetId = leaderboard[1].id; 
+    } else {
+        targetId = leaderboard[myRankIndex - 1].id; 
+    }
+    
+    if (targetId) {
+        const targetObj = Object.values(players).find(p => p.id === targetId);
+        
+        if (targetObj && !targetObj.isBot) {
+            console.log(`[ATTACK] ${attackerId} -> ${targetObj.id}`);
+            io.to(targetObj.id).emit('sabotage_received', {
+                type: type,
+                attacker: attackerId
+            });
+        }
+    }
+}
 
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {
