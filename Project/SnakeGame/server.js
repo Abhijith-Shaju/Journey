@@ -10,17 +10,18 @@ let players = {};
 const BOTS = [];
 
 // --- MATCH CONFIGURATION ---
-const MATCH_DURATION = 180; // 180 Seconds (3 Minutes)
-const INTERMISSION_DURATION = 10; // 10 Seconds break
+const MATCH_DURATION = 180; 
+const INTERMISSION_DURATION = 10; 
 
 let matchTime = MATCH_DURATION;
 let isIntermission = false;
 
-// --- BOT CONFIGURATION ---
+// 1. NEW: Server waits for a human before ticking
+let gameActive = false; 
+
 const BOT_NAMES = ["Bot_Alpha", "Bot_Bravo", "Bot_Charlie", "Bot_Delta", "Bot_Echo"];
 const BOT_COUNT = 5;
 
-// Initialize Bots
 function initBots() {
     for (let i = 0; i < BOT_COUNT; i++) {
         const botId = `bot_${i}`;
@@ -38,7 +39,14 @@ initBots();
 io.on('connection', (socket) => {
     console.log(`[JOIN] ${socket.id}`);
 
-    // Add Player
+    // 2. NEW: If this is the first human, WAKE UP the server
+    const humans = Object.values(players).filter(p => !p.isBot).length;
+    if (!gameActive && humans === 0) {
+        console.log(">> First Player Joined! Starting Game Loop...");
+        gameActive = true;
+        startNewMatch(); // Force fresh start
+    }
+
     players[socket.id] = {
         id: socket.id,
         score: 0,
@@ -46,13 +54,10 @@ io.on('connection', (socket) => {
         isBot: false
     };
 
-    // Send current time immediately so they don't wait for tick
     socket.emit('time_update', matchTime);
 
     socket.on('sync_stats', (data) => {
-        // If match is over, ignore score updates
         if (isIntermission) return; 
-        
         if (players[socket.id]) {
             players[socket.id].score = data.score;
             players[socket.id].status = data.status;
@@ -60,54 +65,54 @@ io.on('connection', (socket) => {
     });
 
     socket.on('sabotage_sent', (payload) => {
-        if (isIntermission) return; // No fighting during break
+        if (isIntermission) return;
         handleSabotage(socket.id, payload.type);
     });
 
     socket.on('disconnect', () => {
         console.log(`[LEAVE] ${socket.id}`);
         delete players[socket.id];
+
+        // 3. NEW: If last human leaves, FREEZE the server
+        const humansLeft = Object.values(players).filter(p => !p.isBot).length;
+        if (humansLeft === 0) {
+            console.log(">> Lobby Empty. Pausing Game...");
+            gameActive = false; // Stop the clock
+            matchTime = MATCH_DURATION; // Reset clock for next person
+        }
     });
 });
 
 // --- GAME LOOPS ---
 
-// 1. THE MATCH CLOCK (Runs every 1 second)
+// 1. THE MATCH CLOCK
 setInterval(() => {
-    if (isIntermission) return; // Clock pauses during break
+    if (!gameActive || isIntermission) return; // Stop if empty or break
 
     matchTime--;
-
-    // Broadcast Time
     io.emit('time_update', matchTime);
 
-    // MATCH END CONDITION
-    if (matchTime <= 0) {
-        endMatch();
-    }
+    if (matchTime <= 0) endMatch();
 }, 1000);
 
 function endMatch() {
     isIntermission = true;
     console.log("[MATCH ENDED]");
 
-    // Find Winner
     const leaderboard = Object.values(players).sort((a, b) => b.score - a.score);
     const winner = leaderboard[0];
 
-    // Broadcast Results
     io.emit('match_ended', {
         winnerName: winner ? winner.id : "No One",
         nextMatchIn: INTERMISSION_DURATION
     });
 
-    // Start Countdown to New Match
-    setTimeout(() => {
-        startNewMatch();
-    }, INTERMISSION_DURATION * 1000);
+    setTimeout(() => startNewMatch(), INTERMISSION_DURATION * 1000);
 }
 
 function startNewMatch() {
+    if (!gameActive) return; // Don't start if everyone left during break
+
     console.log("[NEW MATCH STARTED]");
     isIntermission = false;
     matchTime = MATCH_DURATION;
@@ -122,13 +127,12 @@ function startNewMatch() {
         }
     });
 
-    // Tell clients to wipe their boards
     io.emit('match_started', matchTime);
 }
 
-// 2. Bot AI Loop (Simulation)
+// 2. Bot AI Loop
 setInterval(() => {
-    if (isIntermission) return; // Bots sleep during break
+    if (!gameActive || isIntermission) return; // Bots sleep if no humans
 
     BOTS.forEach(botId => {
         const bot = players[botId];
@@ -146,7 +150,7 @@ setInterval(() => {
 
 // 3. Chaos/Attack Loop
 setInterval(() => {
-    if (isIntermission) return;
+    if (!gameActive || isIntermission) return; // No attacks if no humans
 
     const aliveBots = BOTS.filter(id => players[id] && players[id].status === 'ALIVE');
     if (aliveBots.length === 0) return;
@@ -157,8 +161,10 @@ setInterval(() => {
     handleSabotage(attackerId, 'NO_TURN');
 }, 3000);
 
-// 4. Leaderboard Broadcast
+// 4. Leaderboard Broadcast (Always run this so menu leaderboard works if you want)
 setInterval(() => {
+    // We can pause this too if we want to save resources, but keeping it running
+    // ensures a fresh connection gets data immediately.
     const leaderboard = Object.values(players).sort((a, b) => b.score - a.score);
     io.emit('leaderboard_update', leaderboard);
 }, 500);
@@ -166,10 +172,6 @@ setInterval(() => {
 // --- HELPER ---
 function handleSabotage(attackerId, type) {
     const leaderboard = Object.values(players).sort((a, b) => b.score - a.score);
-    
-    // Find Attacker Rank
-    // Note: Players store ID as socket.id, Bots store Name as socket.id in logic (simplified)
-    // We check both for robustness
     const myRankIndex = leaderboard.findIndex(p => p.id === players[attackerId]?.id || p.id === attackerId);
 
     if (myRankIndex === -1) return;
@@ -182,10 +184,7 @@ function handleSabotage(attackerId, type) {
     }
     
     if (targetId) {
-        // Find Target Socket
-        // If target is bot, p.id is Name. If target is human, p.id is SocketID.
         const targetObj = Object.values(players).find(p => p.id === targetId);
-        
         if (targetObj && !targetObj.isBot) {
             io.to(targetObj.id).emit('sabotage_received', { type: type, attacker: attackerId });
         }
