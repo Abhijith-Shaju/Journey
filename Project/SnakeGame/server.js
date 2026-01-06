@@ -176,6 +176,7 @@ function handleSabotage(attackerId, type) {
 
     if (myRankIndex === -1) return;
 
+    // Target the player immediately above you (or 2nd place if you are 1st)
     let targetId = null;
     if (myRankIndex === 0) {
         if (leaderboard.length > 1) targetId = leaderboard[1].id; 
@@ -185,8 +186,15 @@ function handleSabotage(attackerId, type) {
     
     if (targetId) {
         const targetObj = Object.values(players).find(p => p.id === targetId);
+        
+        // --- NEW: RANDOMIZE SABOTAGE TYPE ---
+        const SABOTAGES = ['NO_TURN', 'REVERSE', 'BLIND', 'SPEED'];
+        const randomType = SABOTAGES[Math.floor(Math.random() * SABOTAGES.length)];
+        // ------------------------------------
+
         if (targetObj && !targetObj.isBot) {
-            io.to(targetObj.id).emit('sabotage_received', { type: type, attacker: attackerId });
+            console.log(`[ATTACK] ${attackerId} -> ${targetObj.id} (${randomType})`);
+            io.to(targetObj.id).emit('sabotage_received', { type: randomType, attacker: attackerId });
         }
     }
 }

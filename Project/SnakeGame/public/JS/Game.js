@@ -318,47 +318,70 @@ class Game {
     }
 
     triggerSabotage(type) {
+        // 1. Check Immunity
         if (this.input.isImmune || this.snake.invincible) { 
             this.log("Blocked Sabotage (Invincible)!", "buff-msg"); 
             return; 
         }
 
         this.audio.playSabotage();
-
-        // 1. Visual Feedback: Flash the CANVAS background Red (Unmissable)
-        const originalColor = this.canvas.style.backgroundColor;
-        this.canvas.style.backgroundColor = '#550000'; // Dark Red Background
-        this.canvas.style.borderColor = 'red';
         
+        // Visual Flash (Red Alert)
+        this.canvas.style.backgroundColor = '#550000';
+        this.canvas.style.borderColor = 'red';
         setTimeout(() => {
-            this.canvas.style.backgroundColor = '#000'; // Reset to Black
+            this.canvas.style.backgroundColor = '#000';
             this.canvas.style.borderColor = '#e94560';
         }, 500);
 
+        // --- APPLY SPECIFIC EFFECT ---
+        let msg = "ATTACKED!";
+        
         if (type === 'NO_TURN') {
-            // 2. Logic: Disable turning
+            msg = "⚠ JAMMED ⚠";
             this.input.inputLocked = true;
+            setTimeout(() => this.input.inputLocked = false, 2000);
+
+        } else if (type === 'REVERSE') {
+            msg = "⚠ CONFUSION ⚠";
+            this.input.reversed = true;
+            this.canvas.style.filter = "hue-rotate(90deg)"; // Weird color shift
             
-            // 3. UI: Update Status to show effect
-            const oldStatus = this.uiStatus.textContent;
-            this.uiStatus.textContent = "⚠ CONTROLS JAMMED ⚠";
-            this.uiStatus.style.color = "red";
-            this.log("FROZEN! Controls Locked.", "sabotage-msg");
+            setTimeout(() => { 
+                this.input.reversed = false; 
+                this.canvas.style.filter = "none";
+            }, 4000); // Lasts 4 seconds
+
+        } else if (type === 'BLIND') {
+            msg = "⚠ BLINDNESS ⚠";
+            const blind = document.getElementById('blindness-overlay');
+            blind.style.display = 'flex';
             
-            setTimeout(() => {
-                this.input.inputLocked = false;
-                
-                // Reset UI
-                this.uiStatus.textContent = "ALIVE";
-                this.uiStatus.style.color = "lime";
-                this.log("Controls Restored.", "highlight");
-                
-                // Optional: Give 3s immunity after getting hit
-                this.input.isImmune = true;
-                this.log("Cleanse Active (3s Immunity)", "highlight");
-                setTimeout(() => this.input.isImmune = false, 3000);
-            }, 2000);
+            setTimeout(() => { blind.style.display = 'none'; }, 2000); // Lasts 2s
+
+        } else if (type === 'SPEED') {
+            msg = "⚠ HYPER SPEED ⚠";
+            // Double speed (Tick Rate * 2)
+            // We modify the interval, not the config
+            this.tickInterval = 1000 / (CONFIG.TICK_RATE * 2.5); 
+            
+            setTimeout(() => { 
+                this.tickInterval = 1000 / CONFIG.TICK_RATE; // Reset
+            }, 3000); // Lasts 3s
         }
+
+        // --- UPDATE UI ---
+        this.uiStatus.textContent = msg;
+        this.uiStatus.style.color = "red";
+        this.log(`Hit by ${type}!`, "sabotage-msg");
+
+        // Give post-hit immunity (The "Cleanse")
+        setTimeout(() => {
+            this.uiStatus.textContent = "ALIVE";
+            this.uiStatus.style.color = "lime";
+            this.input.isImmune = true;
+            setTimeout(() => this.input.isImmune = false, 3000);
+        }, 3000); // Wait for worst effect to end before resetting status
     }
 
     handleDeath() {
