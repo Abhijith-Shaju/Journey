@@ -72,6 +72,9 @@ class Game {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         
+        this.audio = new AudioController();
+        this.particles = new ParticleSystem();
+
         this.input = new InputHandler();
         this.snake = new Snake();
         
@@ -190,6 +193,8 @@ class Game {
     }
 
     update() {
+        this.particles.update();
+
         if (!this.snake.alive || !this.matchActive) return;
 
         this.input.update();
@@ -259,10 +264,12 @@ class Game {
 
     handleItemEffect(item) {
         if (item.type === 'RED') {
+            this.audio.playSabotage();
             this.log("Red Star! Sending Sabotage...", 'sabotage-msg');
             this.socket.emit('sabotage_sent', { type: 'NO_TURN' });
         } 
         else if (item.type === 'BLUE') {
+            this.audio.playBuff();
             const buffs = ['Invincible', 'ShortenTail'];
             const randomBuff = buffs[Math.floor(Math.random() * buffs.length)];
 
@@ -290,6 +297,7 @@ class Game {
 
                 setTimeout(() => {
                     this.snake.invincible = false;
+                    this.canvas.style.borderColor = '#e94560';
                     this.canvas.style.boxShadow = "0 0 20px rgba(233, 69, 96, 0.2)";
                     this.log("Invincibility Ended", 'highlight');
                 }, 3000);
@@ -299,12 +307,22 @@ class Game {
         }
 
         else if (item.type === 'GOLD') {
+            this.audio.playEat();
             this.log("GOLD ORB! +15 Points", 'highlight');
+        }
+        
+        else if (item.type === 'GREEN'){
+            this.audio.playEat();
         }
     }
 
     triggerSabotage(type) {
-        console.log("!!! SABOTAGE RECEIVED !!! Type:", type); // <--- DEBUG LOG
+        if (this.input.isImmune || this.snake.invincible) { 
+            this.log("Blocked Sabotage (Invincible)!", "buff-msg"); 
+            return; 
+        }
+
+        this.audio.playSabotage();
 
         // 1. Visual Feedback: Flash the CANVAS background Red (Unmissable)
         const originalColor = this.canvas.style.backgroundColor;
@@ -343,6 +361,10 @@ class Game {
     }
 
     handleDeath() {
+
+        this.audio.playDie();
+        this.particles.explode(this.snake.body[0].x, this.snake.body[0].y, '#e94560');
+
         // 1. Mark as dead locally
         this.uiStatus.textContent = 'DEAD (Respawn 3s)';
         this.uiStatus.style.color = 'red';
@@ -423,6 +445,9 @@ class Game {
         // Clear Screen
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, CONFIG.CANVAS_SIZE, CONFIG.CANVAS_SIZE);
+
+        // --- NEW: DRAW PARTICLES ---
+        this.particles.draw(ctx);
 
         const now = Date.now();
 
