@@ -82,6 +82,7 @@ class Game {
         this.spawnInitialItems();
 
         this.lastTime = 0;
+        this.accumulator = 0;
         this.tickInterval = 1000 / CONFIG.TICK_RATE;
 
         this.skipTailThisTick = false;
@@ -361,40 +362,55 @@ class Game {
     }
 
     handleDeath() {
-
+        // 1. Initial State
+        let timeLeft = 3;
+        this.uiStatus.style.color = 'red';
+        this.uiStatus.textContent = `DEAD (Respawn ${timeLeft}s)`;
+        this.log(`Died. Score: ${this.snake.score}. Penalizing...`, 'sabotage-msg');
+        
+        // 2. Play Effects
         this.audio.playDie();
         this.particles.explode(this.snake.body[0].x, this.snake.body[0].y, '#e94560');
+        
+        // 3. Update Server immediately
+        this.updateUI();
 
-        // 1. Mark as dead locally
-        this.uiStatus.textContent = 'DEAD (Respawn 3s)';
-        this.uiStatus.style.color = 'red';
-        this.log(`Died. Score: ${this.snake.score}. Penalizing...`, 'sabotage-msg');
-
-        // 2. CRITICAL FIX: Tell the server "I am DEAD" right now!
-        this.updateUI(); 
-
-        // 3. Start the timer
-        this.respawnTimer = setTimeout(() => {
-            this.waitingForInput = true;
-            this.uiStatus.textContent = 'PRESS ANY KEY';
-            this.uiStatus.style.color = 'white';
-            this.respawnTimer = null;
-        }, 3000);
+        // 4. Start Countdown Loop
+        // We use setInterval instead of setTimeout so we can update the UI every second
+        const countdownInterval = setInterval(() => {
+            timeLeft--;
+            
+            if (timeLeft > 0) {
+                // Update text: "Respawn 2s", "Respawn 1s"
+                this.uiStatus.textContent = `DEAD (Respawn ${timeLeft}s)`;
+            } else {
+                // Time is up! Stop the loop
+                clearInterval(countdownInterval);
+                
+                // Switch to "Waiting" state
+                this.waitingForInput = true;
+                this.uiStatus.textContent = 'PRESS ANY KEY';
+                this.uiStatus.style.color = 'white';
+            }
+        }, 1000); // Run every 1000ms (1 second)
     }
 
     triggerRespawn() {
         this.waitingForInput = false;
+        this.input.inputLocked = false;
         
-        // Calculate new length based on conserved score (Conservation of Mass)
-        // Formula: (Score / 5) + 3 Base
-        const newLength = Math.max(3, Math.floor(this.snake.score / 5) + 3);
-        
+        const newLength = Math.min(15, Math.floor(this.snake.score / 5) + 3);
         this.snake.reset(newLength);
-        this.spawnInitialItems();
+        
+        // --- ADD THIS LINE ---
+        this.input.reset(); 
+        // --------------------
+
+        this.items = [];
+        for(let i=0; i<CONFIG.MAX_ITEMS; i++) this.spawnSingleItem();
         
         this.uiStatus.textContent = 'ALIVE';
         this.uiStatus.style.color = 'lime';
-        this.input.nextDirection = { x: 1, y: 0 }; // Reset Input
         this.updateUI();
     }
 
@@ -510,20 +526,35 @@ class Game {
         }
     }
 
-    gameLoop(timestamp) {
-        try {
-            const deltaTime = timestamp - this.lastTime;
-            
-            if (deltaTime > this.tickInterval) {
-                this.update();
-                this.draw();
-                // Adjust for lag to keep smooth tick rate
-                this.lastTime = timestamp - (deltaTime % this.tickInterval);
+    gameLoop(currentTime) {
+        if (!this.lastTime) this.lastTime = currentTime;
+        
+        // Calculate how much time passed since last frame
+        const deltaTime = currentTime - this.lastTime;
+        this.lastTime = currentTime;
+
+        // Safety Cap: If you tabbed out for 1 hour, don't try to simulate 
+        // 1 hour of frames instantly (it would freeze the browser).
+        // Cap it at 2 seconds (enough to kill the snake if it hits a wall).
+        const safeDelta = Math.min(deltaTime, 3000); 
+
+        this.accumulator += safeDelta;
+
+        // "Catch Up" Loop
+        // Keep running update() until we have used up all the accumulated time.
+        while (this.accumulator >= this.tickInterval) {
+            this.update(); // Move Snake
+            this.accumulator -= this.tickInterval; // Subtract time used
+
+            // Optimization: If snake crashed during catch-up, stop calculating.
+            if (!this.snake.alive) {
+                this.accumulator = 0;
+                break;
             }
-        } catch (err) {
-            console.error("Game Loop Error:", err);
-            this.log('Engine error — recovered safely.', 'sabotage-msg');
         }
+
+        // Draw only once after all physics updates are done
+        this.draw();
         
         requestAnimationFrame((t) => this.gameLoop(t));
     }

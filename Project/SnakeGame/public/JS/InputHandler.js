@@ -14,6 +14,11 @@ class InputHandler {
         document.addEventListener('keydown', (e) => this.handleKey(e));
     }
 
+    reset() {
+        this.direction = { x: 1, y: 0 }; // Reset to default "Moving Right"
+        this.queue = [];                 // Clear any buffered keys
+    }
+
     handleKey(e) {
         if (this.inputLocked) return;
         

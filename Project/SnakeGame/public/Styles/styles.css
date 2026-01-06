@@ -29,6 +29,58 @@ body {
     box-sizing: border-box;
 }
 
+/* --- TOP BAR (Timer & Quit) --- */
+#top-bar {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center; /* Vertically align button with text */
+    gap: 20px;           /* Space between Timer and Quit button */
+    margin-bottom: 15px;
+}
+
+#timer-box {
+    background: #222;
+    padding: 8px 20px;
+    border-radius: 5px;
+    border: 1px solid #444;
+    font-size: 1.5rem;
+    color: #ccc;
+    font-weight: bold;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+#time-display {
+    color: #fff;
+}
+
+/* --- QUIT BUTTON (Redesigned) --- */
+#quit-btn {
+    background: #d32f2f; /* Darker red */
+    color: white;
+    border: 1px solid #b71c1c;
+    padding: 8px 20px;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 1.2rem;
+    cursor: pointer;
+    border-radius: 5px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    transition: all 0.2s;
+    height: 100%; /* Match timer height */
+}
+
+#quit-btn:hover {
+    background: #ff4444;
+    box-shadow: 0 0 15px #ff4444;
+    transform: translateY(-2px); /* Slight lift effect */
+}
+
+#quit-btn:active {
+    transform: translateY(0);
+}
+
+
 /* --- LEFT SIDEBAR (Leaderboard & Logs) --- */
 #left-sidebar {
     flex: 1;

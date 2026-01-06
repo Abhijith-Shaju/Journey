@@ -42,17 +42,17 @@
         </div>
 
         <div id="center-stage">
-            <div style="width: 100%; display: flex; justify-content: center; margin-bottom: 10px;">
-                <div style="background: #222; padding: 5px 20px; border-radius: 5px; border: 1px solid #444; font-size: 1.5rem;">
-                    TIME: <span id="time-display" style="color: #fff">3:00</span>
+            <div id="top-bar">
+                <div id="timer-box">
+                    TIME: <span id="time-display">3:00</span>
                 </div>
+                <button id="quit-btn">QUIT</button>
             </div>
             <canvas id="gameCanvas" width="600" height="600"></canvas>
             <div id="status-bar">
                 <div>SCORE: <span id="score-display">0</span></div>
                 <div>LENGTH: <span id="length-display">3</span></div>
                 <div>STATUS: <span id="status-display" style="color: lime">ALIVE</span></div>
-                <button id="quit-btn">QUIT</button>
             </div>
         </div>
 
