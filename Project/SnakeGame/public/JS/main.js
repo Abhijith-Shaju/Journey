@@ -12,5 +12,6 @@ window.onload = () => {
         // We only instantiate the Game class now. 
         // This prevents connecting to the server before the user is ready.
         new Game();
+        
     });
 };
