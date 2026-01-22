@@ -1,0 +1,21 @@
+1] matrix print: 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+2] reverse qns 1;
+3] matrix zig-zag:  1 2 3 4 
+                    8 7 6 5
+                    9 10 11 12
+                    16 15 14 13
+
+4] matrix: up to bottom print column wise:      1 5 9 13
+                                                2 6 10 14
+                                                3 7 11 15
+                                                4 8 12 16
+
+5] 4th qns bottom to up:    13 9 5 1
+                            14 10 6 2
+
+6] zig-zag 4th qns:     1 5 9 13
+                        14 10 6 2
+                        3 7 11 15
+                        16 12 8 4
+
+7] note book : 
