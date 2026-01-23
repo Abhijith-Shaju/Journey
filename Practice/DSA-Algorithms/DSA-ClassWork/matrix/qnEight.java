@@ -18,6 +18,17 @@ public class qnEight {
 
             System.out.println();
         }
+
+        for(int i = 1; i < matrix.length; i++){
+            int tempi = i;
+            int tempj = matrix.length - 1;
+                
+            while(tempj >= 0 && tempi < matrix.length){
+                System.out.print(matrix[tempi++][tempj--] + " ");
+            }
+
+            System.out.println();
+        }
     }
 }
 // sir's answer

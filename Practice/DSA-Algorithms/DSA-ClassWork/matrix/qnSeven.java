@@ -23,5 +23,19 @@ public class qnSeven {
             }
             System.out.println();
         }
+
+        for(int i = matrix.length-1; i > 0; i--){
+            int tempi = i-1;
+            
+            for(int j = matrix.length-1; j >= 0; j--){
+                int tempj = j;
+                
+                while(tempi >=0){
+                    System.out.print(matrix[tempj--][tempi--] + " ");
+                }
+
+            }
+            System.out.println();
+        }
     }
 }
