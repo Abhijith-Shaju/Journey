@@ -24,9 +24,10 @@ public class qnNine {
                         System.out.print(matrix[tempi--][tempj--] + " ");
                     }
                     dir = false;
-                }else{
-                    while(){}
                 }
+                // else{
+                //     while(){}
+                // }
 
             }
             System.out.println();
