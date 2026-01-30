@@ -20,7 +20,7 @@ public class CodeChefYourNameIsMine {
 
             int i = 0, j = 0;
             
-            while(i < arr[0].length() && j < arr[1].length()1){
+            while(i < arr[0].length() && j < arr[1].length()){
                 if(arr[0].charAt(i) == arr[1].charAt(j)){
                     i++;
                     j++;
