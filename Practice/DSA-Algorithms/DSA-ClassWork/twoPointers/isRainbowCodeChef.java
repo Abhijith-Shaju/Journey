@@ -13,12 +13,17 @@ public class isRainbowCodeChef {
             int[] arr = new int[num];
             ArrayList < Integer > list = new ArrayList < > ();
 
+
+            int xor = 0;
+
             for (int i = 0; i < num; i++) {
                 arr[i] = sc.nextInt();
 
                 if (!list.contains(arr[i])) {
                     list.add(arr[i]);
                 }
+
+                xor ^= arr[i];
             }
 
             String ans = "yes";
@@ -36,12 +41,14 @@ public class isRainbowCodeChef {
                 }
                 if (ans == "yes") {
                     while (i < j) {
-                        if (arr[i] != arr[j]) {
+                        if (arr[i] == arr[j] && (arr[i] <= arr[i + 1] && arr[j - 1] >= arr[j])) {
+                            i++;
+                            j--;
+                            continue;
+                        } else {
                             ans = "no";
                             break;
                         }
-                        i++;
-                        j--;
                     }
                 }
             }
