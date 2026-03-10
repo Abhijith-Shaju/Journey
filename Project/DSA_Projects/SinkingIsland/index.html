@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sinking Island</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+
+    <div id="grid" class="grid mx-auto grid-cols-5 w-max h-max gap-2 mt-10"></div>
+
+    <button id="sink" class="bg-gray-200 p-4 rounded-xl mt-10"> Sink </button>
+    
+
+    <script>
+        const grid = document.getElementById('grid');
+
+        const island = [
+            [0, 0, 1, 1, 0],
+            [1, 0, 1, 0, 1],
+            [1, 1, 0, 0, 0],
+            [0, 0, 0, 1, 1],
+            [1, 1, 1, 1, 0]
+        ]
+
+        for(let i = 0; i < island.length; i++){
+            for(let j = 0; j < island[i].length; j++){
+                let id = `div${i}${j}`;
+                let div = document.createElement('div');
+                div.id = id;
+                div.classList.add('p-4', 'bg-red-200', 'h-10', 'flex', 'justify-center', 'items-center', 'duration-200', 'transform')
+                div.innerHTML = `${island[i][j]}`;
+                grid.append(div); 
+            }
+        }
+
+        const sink = document.getElementById('sink');
+
+        sink.addEventListener('click', async ()=>{
+            for(let i = 0; i < island.length; i++){
+                for(let j = 0; j < island[i].length; j++){
+                    if(island[i][j] == 1) {
+                        await helper(i, j, island);
+                    }
+                }
+            }
+        })
+
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        async function helper(i, j, grid){
+            if( i >= grid.length || i < 0 || j >= grid[i].length || j < 0 || grid[i][j] == 0) return;
+
+            grid[i][j] = 0;
+            document.getElementById(`div${i}${j}`).innerText='0';
+            document.getElementById(`div${i}${j}`).classList.add('bg-gray-300');
+
+            await sleep(500);
+
+            await helper(i+1, j, grid);
+            await helper(i-1, j, grid);
+            await helper(i, j+1, grid);
+            await helper(i, j-1, grid);
+        }
+
+
+    </script>
+</body>
+</html>
